@@ -1,11 +1,39 @@
 export type UserRole = 'admin' | 'funcionario';
 
+export type SystemModule =
+  | 'dashboard'
+  | 'clients'
+  | 'vehicles'
+  | 'work_orders'
+  | 'quotes'
+  | 'finance'
+  | 'stock'
+  | 'relationship'
+  | 'reports'
+  | 'settings';
+
+export interface UserPermissions {
+  allowedModules: SystemModule[];
+  // Granular financial permissions
+  canViewFinancialTotals?: boolean;
+  canManageTransactions?: boolean;
+  canViewReportsFinancials?: boolean;
+  // Other granular permissions
+  canEditSettings?: boolean;
+  canManageUsers?: boolean;
+  canDeleteRecords?: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
   companyId: string;
+  active?: boolean;
+  permissions?: UserPermissions;
+  createdAt?: string;
 }
 
 export interface CompanySettings {

@@ -24,20 +24,25 @@ import {
   getAccountsReceivable,
   getMaintenanceReminders,
   getFollowUps,
+  canViewFinancialData,
+  hasModuleAccess,
 } from '../services/storage';
 import { formatCurrency, formatPhone } from '../utils/formatters';
 import { ActiveTab } from '../components/Navigation';
+import { User } from '../types';
 
 interface DashboardViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   onOpenQuickAttendance: () => void;
   onSelectClient?: (clientId: string) => void;
+  currentUser?: User | null;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   setActiveTab,
   onOpenQuickAttendance,
   onSelectClient,
+  currentUser,
 }) => {
   const transactions = getFinancialTransactions();
   const workOrders = getWorkOrders();
@@ -46,6 +51,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const receivables = getAccountsReceivable();
   const maintenanceReminders = getMaintenanceReminders();
   const followUps = getFollowUps();
+
+  const showFinancials = canViewFinancialData(currentUser);
+  const canAccessFinance = hasModuleAccess(currentUser, 'finance');
 
   // Current Month Financial Calculations
   const todayDate = new Date();
@@ -94,9 +102,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>Oficina em Operação</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">Olá, Vinícius</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
+              Olá, {currentUser?.name || 'Administrador'}
+            </h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
-              Veja como está o desempenho e os alertas da sua oficina hoje.
+              {showFinancials
+                ? 'Veja como está o faturamento, indicadores e os alertas da sua oficina hoje.'
+                : 'Acompanhe as ordens de serviço, clientes e tarefas operacionais da oficina.'}
             </p>
           </div>
 
@@ -111,78 +123,127 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-        {/* Faturamento */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Faturamento</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+      {showFinancials ? (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* Faturamento */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Faturamento</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
             </div>
+            <p className="text-lg font-black text-slate-900">{formatCurrency(monthIncomes)}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Entradas do mês</p>
           </div>
-          <p className="text-lg font-black text-slate-900">{formatCurrency(monthIncomes)}</p>
-          <p className="text-[10px] text-slate-400 font-medium">Entradas do mês</p>
-        </div>
 
-        {/* Despesas */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Despesas</span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <TrendingDown className="w-4 h-4" />
+          {/* Despesas */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Despesas</span>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <TrendingDown className="w-4 h-4" />
+              </div>
             </div>
+            <p className="text-lg font-black text-slate-900">{formatCurrency(monthExpenses)}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Saídas do mês</p>
           </div>
-          <p className="text-lg font-black text-slate-900">{formatCurrency(monthExpenses)}</p>
-          <p className="text-[10px] text-slate-400 font-medium">Saídas do mês</p>
-        </div>
 
-        {/* Resultado */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Resultado</span>
-            <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                monthResult >= 0 ? 'bg-sky-50 text-sky-600' : 'bg-rose-50 text-rose-600'
-              }`}
-            >
-              <DollarSign className="w-4 h-4" />
+          {/* Resultado */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Resultado</span>
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                  monthResult >= 0 ? 'bg-sky-50 text-sky-600' : 'bg-rose-50 text-rose-600'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+              </div>
             </div>
+            <p className={`text-lg font-black ${monthResult >= 0 ? 'text-sky-700' : 'text-rose-600'}`}>
+              {formatCurrency(monthResult)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-medium">Lucro operacional</p>
           </div>
-          <p className={`text-lg font-black ${monthResult >= 0 ? 'text-sky-700' : 'text-rose-600'}`}>
-            {formatCurrency(monthResult)}
-          </p>
-          <p className="text-[10px] text-slate-400 font-medium">Lucro operacional</p>
-        </div>
 
-        {/* Atendimentos */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Serviços</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Wrench className="w-4 h-4" />
+          {/* Atendimentos */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Serviços</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Wrench className="w-4 h-4" />
+              </div>
             </div>
+            <p className="text-lg font-black text-slate-900">{monthServicesCount}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Ordens neste mês</p>
           </div>
-          <p className="text-lg font-black text-slate-900">{monthServicesCount}</p>
-          <p className="text-[10px] text-slate-400 font-medium">Ordens neste mês</p>
-        </div>
 
-        {/* Ticket Médio */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2 col-span-2 lg:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ticket Médio</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+          {/* Ticket Médio */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2 col-span-2 lg:col-span-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ticket Médio</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
             </div>
+            <p className="text-lg font-black text-slate-900">{formatCurrency(averageTicket)}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Média por cliente</p>
           </div>
-          <p className="text-lg font-black text-slate-900">{formatCurrency(averageTicket)}</p>
-          <p className="text-[10px] text-slate-400 font-medium">Média por cliente</p>
         </div>
-      </div>
+      ) : (
+        /* Operational Non-Financial Dashboard for Employees */
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Serviços do Mês</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Wrench className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-black text-slate-900">{monthServicesCount}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Ordens abertas</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total de Clientes</span>
+              <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-black text-slate-900">{clients.length}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Cadastrados no sistema</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Itens em Estoque</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Package className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-black text-slate-900">{stock.length}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Produtos e peças</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Lembretes & Pós</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-black text-slate-900">{pendingFollowUps.length + pendingReminders.length}</p>
+            <p className="text-[10px] text-slate-400 font-medium">Ações de contato pendentes</p>
+          </div>
+        </div>
+      )}
 
       {/* QUICK ACTIONS BAR */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">Ações Rápidas da Oficina</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        <div className={`grid gap-2.5 ${canAccessFinance ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-3'}`}>
           <button
             onClick={() => setActiveTab('clients')}
             className="flex items-center justify-center gap-2 p-3 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-xl text-slate-800 hover:text-sky-800 text-xs font-bold transition-all cursor-pointer"
@@ -207,21 +268,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>+ Novo Serviço</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('finance')}
-            className="flex items-center justify-center gap-2 p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-xs font-bold rounded-xl transition-all cursor-pointer"
-          >
-            <DollarSign className="w-4 h-4 text-emerald-600" />
-            <span>+ Entradas</span>
-          </button>
+          {canAccessFinance && (
+            <>
+              <button
+                onClick={() => setActiveTab('finance')}
+                className="flex items-center justify-center gap-2 p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                <span>+ Entradas</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('finance')}
-            className="flex items-center justify-center gap-2 p-3 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 text-xs font-bold rounded-xl transition-all cursor-pointer col-span-2 sm:col-span-1"
-          >
-            <TrendingDown className="w-4 h-4 text-rose-600" />
-            <span>+ Saídas</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('finance')}
+                className="flex items-center justify-center gap-2 p-3 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 text-xs font-bold rounded-xl transition-all cursor-pointer col-span-2 sm:col-span-1"
+              >
+                <TrendingDown className="w-4 h-4 text-rose-600" />
+                <span>+ Saídas</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -330,7 +395,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
 
           {/* Overdue Receivables */}
-          {overdueReceivables.length > 0 && (
+          {showFinancials && overdueReceivables.length > 0 && (
             <div
               onClick={() => setActiveTab('finance')}
               className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200 flex items-center justify-between hover:bg-purple-50 cursor-pointer transition-all group"

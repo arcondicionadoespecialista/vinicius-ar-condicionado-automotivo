@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Search, Plus, Wrench, ShieldCheck } from 'lucide-react';
+import { Search, Plus, ShieldCheck, LogOut } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { GlobalSearchModal } from './GlobalSearchModal';
+import { User } from '../types';
 
 interface HeaderProps {
   onOpenQuickAttendance: () => void;
   onSelectClient: (clientId: string) => void;
   onSelectVehicle: (vehicleId: string) => void;
   currentTitle?: string;
+  currentUser?: User | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectClient,
   onSelectVehicle,
   currentTitle = 'Dashboard Geral',
+  currentUser,
+  onLogout,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -61,6 +66,17 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">Novo Atendimento</span>
             <span className="sm:hidden">Novo</span>
           </button>
+
+          {/* Mobile logout trigger */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="md:hidden p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+              title="Sair do Sistema"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </header>
 
@@ -74,3 +90,4 @@ export const Header: React.FC<HeaderProps> = ({
     </>
   );
 };
+

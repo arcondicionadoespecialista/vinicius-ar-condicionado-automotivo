@@ -15,6 +15,38 @@
     <meta name="apple-mobile-web-app-title" content="Vinícius AR" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <script>
+      (function() {
+        try {
+          var origFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+          var _currentFetch = origFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return _currentFetch || (typeof window.fetch === 'function' ? window.fetch.bind(window) : origFetch);
+            },
+            set: function(fn) {
+              _currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          try {
+            var _protoFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+            Object.defineProperty(Window.prototype, 'fetch', {
+              get: function() {
+                return _protoFetch;
+              },
+              set: function(fn) {
+                _protoFetch = fn;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e2) {}
+        }
+      })();
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-cyan-500 selection:text-white">
     <div id="root"></div>

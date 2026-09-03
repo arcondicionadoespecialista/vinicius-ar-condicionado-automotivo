@@ -12,11 +12,16 @@ import {
   MaintenanceReminder,
   FollowUp,
   MessageTemplate,
+  User,
+  SystemModule,
+  UserPermissions,
 } from '../types';
 import { getTodayString, addMonthsToDate, addDaysToDate } from '../utils/formatters';
 import { supabase } from './supabase';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
+  AUTH_USER: 'vinicius_ar_auth_user',
+  USERS: 'vinicius_ar_users',
   SETTINGS: 'vinicius_ar_settings',
   CLIENTS: 'vinicius_ar_clients',
   VEHICLES: 'vinicius_ar_vehicles',
@@ -46,7 +51,10 @@ function getItem<T>(key: string, defaultValue: T): T {
 function setItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    window.dispatchEvent(new CustomEvent('storage_updated', { detail: { key } }));
+    // Dispatch asynchronously to prevent "Cannot update a component while rendering a different component"
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('storage_updated', { detail: { key } }));
+    }, 0);
   } catch (e) {
     console.error('Error writing localStorage key ' + key, e);
   }
@@ -2007,3 +2015,245 @@ export function saveMessageTemplate(tmpl: MessageTemplate): void {
   setItem(STORAGE_KEYS.TEMPLATES, templates);
   safeDb(supabase.from('message_templates').upsert(mapTemplateToDb(tmpl)));
 }
+
+// ==========================================
+// AUTHENTICATION & USERS MANAGEMENT
+// ==========================================
+export const ALL_SYSTEM_MODULES: { id: SystemModule; label: string; description: string; sensitiveFinancial?: boolean }[] = [
+  { id: 'dashboard', label: 'Início (Dashboard)', description: 'Visão geral operacional e indicadores' },
+  { id: 'clients', label: 'Clientes', description: 'Cadastro e consulta de clientes' },
+  { id: 'vehicles', label: 'Veículos', description: 'Histórico e veículos dos clientes' },
+  { id: 'work_orders', label: 'Serviços & O.S.', description: 'Abertura e gestão de ordens de serviço' },
+  { id: 'quotes', label: 'Orçamentos', description: 'Criação e aprovação de orçamentos' },
+  { id: 'finance', label: 'Financeiro', description: 'Fluxo de caixa, contas a receber, entradas e saídas', sensitiveFinancial: true },
+  { id: 'stock', label: 'Estoque', description: 'Peças, produtos e movimentações' },
+  { id: 'relationship', label: 'Relacionamento & Lembretes', description: 'Aniversários, pós-venda e lembretes' },
+  { id: 'reports', label: 'Relatórios', description: 'Relatórios de serviços, clientes e faturamento', sensitiveFinancial: true },
+  { id: 'settings', label: 'Configurações', description: 'Dados da oficina, modelos e gestão de usuários' },
+];
+
+export const DEFAULT_ADMIN_USER: User = {
+  id: 'usr_admin',
+  name: 'Vinícius (Admin Geral)',
+  email: 'arcondicionado.especialista@gmail.com',
+  password: 'Ana9825.',
+  role: 'admin',
+  companyId: 'comp_1',
+  active: true,
+  createdAt: '2026-01-01',
+  permissions: {
+    allowedModules: ['dashboard', 'clients', 'vehicles', 'work_orders', 'quotes', 'finance', 'stock', 'relationship', 'reports', 'settings'],
+    canViewFinancialTotals: true,
+    canManageTransactions: true,
+    canViewReportsFinancials: true,
+    canEditSettings: true,
+    canManageUsers: true,
+    canDeleteRecords: true,
+  },
+};
+
+const DEFAULT_EMPLOYEE_PERMISSIONS: UserPermissions = {
+  allowedModules: ['dashboard', 'clients', 'vehicles', 'work_orders', 'quotes', 'stock', 'relationship'],
+  canViewFinancialTotals: false,
+  canManageTransactions: false,
+  canViewReportsFinancials: false,
+  canEditSettings: false,
+  canManageUsers: false,
+  canDeleteRecords: false,
+};
+
+const INITIAL_USERS: User[] = [
+  DEFAULT_ADMIN_USER,
+  {
+    id: 'usr_tecnico_1',
+    name: 'Carlos Técnico',
+    email: 'carlos.tecnico@oficina.com',
+    password: '123456',
+    role: 'funcionario',
+    companyId: 'comp_1',
+    active: true,
+    createdAt: '2026-01-10',
+    permissions: {
+      allowedModules: ['dashboard', 'clients', 'vehicles', 'work_orders', 'quotes', 'stock'],
+      canViewFinancialTotals: false,
+      canManageTransactions: false,
+      canViewReportsFinancials: false,
+      canEditSettings: false,
+      canManageUsers: false,
+      canDeleteRecords: false,
+    },
+  },
+  {
+    id: 'usr_atendente_1',
+    name: 'Mariana Atendimento',
+    email: 'mariana.atendimento@oficina.com',
+    password: '123456',
+    role: 'funcionario',
+    companyId: 'comp_1',
+    active: true,
+    createdAt: '2026-01-15',
+    permissions: {
+      allowedModules: ['dashboard', 'clients', 'vehicles', 'work_orders', 'quotes', 'relationship'],
+      canViewFinancialTotals: false,
+      canManageTransactions: false,
+      canViewReportsFinancials: false,
+      canEditSettings: false,
+      canManageUsers: false,
+      canDeleteRecords: false,
+    },
+  },
+];
+
+export function getUsers(): User[] {
+  const users = getItem<User[]>(STORAGE_KEYS.USERS, []);
+  if (users.length === 0) {
+    setItem(STORAGE_KEYS.USERS, INITIAL_USERS);
+    return INITIAL_USERS;
+  }
+  // Ensure the super admin always exists and is in the list
+  const hasAdmin = users.some(
+    (u) => u.email.toLowerCase() === 'arcondicionado.especialista@gmail.com'.toLowerCase()
+  );
+  if (!hasAdmin) {
+    users.unshift(DEFAULT_ADMIN_USER);
+    setItem(STORAGE_KEYS.USERS, users);
+  }
+  return users;
+}
+
+export function saveUser(user: User): void {
+  const users = getUsers();
+  const index = users.findIndex((u) => u.id === user.id);
+  if (index >= 0) {
+    users[index] = {
+      ...users[index],
+      ...user,
+    };
+  } else {
+    users.push({
+      ...user,
+      id: user.id || 'usr_' + Date.now(),
+      createdAt: user.createdAt || getTodayString(),
+      active: user.active ?? true,
+    });
+  }
+  setItem(STORAGE_KEYS.USERS, users);
+
+  // If current logged-in user updated their own profile or permissions
+  const currentUser = getAuthenticatedUser();
+  if (currentUser && currentUser.id === user.id) {
+    const updated = { ...currentUser, ...user };
+    delete updated.password;
+    setItem(STORAGE_KEYS.AUTH_USER, updated);
+  }
+}
+
+export function deleteUser(userId: string): boolean {
+  const users = getUsers();
+  const targetUser = users.find((u) => u.id === userId);
+  // Never delete super admin
+  if (targetUser && targetUser.email.toLowerCase() === 'arcondicionado.especialista@gmail.com'.toLowerCase()) {
+    return false;
+  }
+  const filtered = users.filter((u) => u.id !== userId);
+  setItem(STORAGE_KEYS.USERS, filtered);
+  return true;
+}
+
+export function getAuthenticatedUser(): User | null {
+  return getItem<User | null>(STORAGE_KEYS.AUTH_USER, null);
+}
+
+export function loginUser(email: string, pass: string): User | null {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const adminEmail = 'arcondicionado.especialista@gmail.com'.toLowerCase();
+  const adminPass = 'Ana9825.';
+
+  // 1. Direct check for Super Admin Master Credentials
+  if (normalizedEmail === adminEmail && pass === adminPass) {
+    const user: User = {
+      ...DEFAULT_ADMIN_USER,
+    };
+    const safeUser = { ...user };
+    delete safeUser.password;
+    setItem(STORAGE_KEYS.AUTH_USER, safeUser);
+    return safeUser;
+  }
+
+  // 2. Search in custom users database
+  const users = getUsers();
+  const matchedUser = users.find(
+    (u) => u.email.trim().toLowerCase() === normalizedEmail && (u.password === pass || (u.email === adminEmail && pass === adminPass))
+  );
+
+  if (matchedUser) {
+    if (matchedUser.active === false) {
+      throw new Error('Usuário inativo. Entre em contato com o Administrador Geral.');
+    }
+    const safeUser = { ...matchedUser };
+    delete safeUser.password;
+    setItem(STORAGE_KEYS.AUTH_USER, safeUser);
+    return safeUser;
+  }
+
+  // 3. Fallback demo accounts
+  if (normalizedEmail === 'admin@vinicius.com' && pass === '123456') {
+    const safeUser = { ...DEFAULT_ADMIN_USER, id: 'usr_admin_demo', email: 'admin@vinicius.com' };
+    delete safeUser.password;
+    setItem(STORAGE_KEYS.AUTH_USER, safeUser);
+    return safeUser;
+  }
+
+  return null;
+}
+
+export function logoutUser(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('storage_updated', { detail: { key: STORAGE_KEYS.AUTH_USER } }));
+    }, 0);
+  } catch (e) {
+    console.error('Error removing auth session', e);
+  }
+}
+
+/**
+ * Check if the user has permission to access a specific module
+ */
+export function hasModuleAccess(user: User | null | undefined, module: SystemModule): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (!user.permissions || !user.permissions.allowedModules) {
+    return DEFAULT_EMPLOYEE_PERMISSIONS.allowedModules.includes(module);
+  }
+  return user.permissions.allowedModules.includes(module);
+}
+
+/**
+ * Check if the user can see financial balances and totals
+ */
+export function canViewFinancialData(user: User | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return !!user.permissions?.canViewFinancialTotals;
+}
+
+/**
+ * Check if the user can manage financial transactions
+ */
+export function canManageFinancialTransactions(user: User | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return !!user.permissions?.canManageTransactions;
+}
+
+/**
+ * Check if the user can manage other system users
+ */
+export function canManageUsers(user: User | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return !!user.permissions?.canManageUsers;
+}
+

@@ -20,20 +20,30 @@ import {
   payInstallment,
   getClients,
   getCompanySettings,
+  canViewFinancialData,
+  canManageFinancialTransactions,
 } from '../services/storage';
 import {
   FinancialTransaction,
   AccountsReceivable,
   Client,
   PaymentMethod,
+  User,
 } from '../types';
 import { formatCurrency, formatPhone, formatDate, getTodayString } from '../utils/formatters';
 
-export const FinanceView: React.FC = () => {
+interface FinanceViewProps {
+  currentUser?: User | null;
+}
+
+export const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState<'flow' | 'incomes' | 'expenses' | 'receivables'>('flow');
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [receivables, setReceivables] = useState<AccountsReceivable[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+
+  const canManageFinance = canManageFinancialTransactions(currentUser);
+  const canSeeTotals = canViewFinancialData(currentUser);
 
   // Modals
   const [isNewTxOpen, setIsNewTxOpen] = useState(false);
@@ -110,54 +120,65 @@ export const FinanceView: React.FC = () => {
           <p className="text-xs text-slate-500">Fluxo de caixa, contas a receber, nota promissória e saídas.</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setTxType('saida');
-              setTxCategory('Insumos e Peças');
-              setIsNewTxOpen(true);
-            }}
-            className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 cursor-pointer"
-          >
-            <TrendingDown className="w-4 h-4 text-rose-600" />
-            <span>+ Nova Saída</span>
-          </button>
+        {canManageFinance && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setTxType('saida');
+                setTxCategory('Insumos e Peças');
+                setIsNewTxOpen(true);
+              }}
+              className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 cursor-pointer"
+            >
+              <TrendingDown className="w-4 h-4 text-rose-600" />
+              <span>+ Nova Saída</span>
+            </button>
 
-          <button
-            onClick={() => {
-              setTxType('entrada');
-              setTxCategory('Serviços');
-              setIsNewTxOpen(true);
-            }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs flex items-center gap-1 cursor-pointer"
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>+ Nova Entrada</span>
-          </button>
-        </div>
+            <button
+              onClick={() => {
+                setTxType('entrada');
+                setTxCategory('Serviços');
+                setIsNewTxOpen(true);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs flex items-center gap-1 cursor-pointer"
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>+ Nova Entrada</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Entradas Totais</span>
-          <p className="text-lg font-black text-emerald-600">{formatCurrency(totalIncomes)}</p>
+      {canSeeTotals ? (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Entradas Totais</span>
+            <p className="text-lg font-black text-emerald-600">{formatCurrency(totalIncomes)}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Saídas Totais</span>
+            <p className="text-lg font-black text-rose-600">{formatCurrency(totalExpenses)}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Saldo em Caixa</span>
+            <p className={`text-lg font-black ${balance >= 0 ? 'text-sky-700' : 'text-rose-600'}`}>
+              {formatCurrency(balance)}
+            </p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Contas a Receber (A Prazo)</span>
+            <p className="text-lg font-black text-purple-700">{formatCurrency(totalPendingReceivables)}</p>
+          </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Saídas Totais</span>
-          <p className="text-lg font-black text-rose-600">{formatCurrency(totalExpenses)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Saldo em Caixa</span>
-          <p className={`text-lg font-black ${balance >= 0 ? 'text-sky-700' : 'text-rose-600'}`}>
-            {formatCurrency(balance)}
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-xs text-amber-900">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <p>
+            <strong>Modo de Consulta Restrito:</strong> Os totais de faturamento e saldo em caixa estão ocultos para sua credencial de acesso.
           </p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Contas a Receber (A Prazo)</span>
-          <p className="text-lg font-black text-purple-700">{formatCurrency(totalPendingReceivables)}</p>
-        </div>
-      </div>
+      )}
 
       {/* Navigation Sub-Tabs */}
       <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200 text-xs font-bold overflow-x-auto">
@@ -303,13 +324,17 @@ export const FinanceView: React.FC = () => {
                           <span className="text-[10px] font-bold text-emerald-700 bg-emerald-200/80 px-2 py-0.5 rounded-md uppercase">
                             Pago
                           </span>
-                        ) : (
+                        ) : canManageFinance ? (
                           <button
                             onClick={() => handlePayInstallment(rec.id, inst.number)}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg cursor-pointer shadow-xs"
                           >
                             Dar Baixa
                           </button>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md uppercase">
+                            Pendente
+                          </span>
                         )}
                       </div>
                     ))}

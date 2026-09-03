@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Navigation, ActiveTab } from './components/Navigation';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { QuickAttendanceModal } from './views/QuickAttendanceModal';
+import { LoginView } from './views/LoginView';
 
 import { DashboardView } from './views/DashboardView';
 import { ClientsView } from './views/ClientsView';
@@ -15,9 +16,11 @@ import { RelationshipView } from './views/RelationshipView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 
-import { seedInitialData } from './services/storage';
+import { seedInitialData, getAuthenticatedUser, logoutUser } from './services/storage';
+import { User } from './types';
 
 export function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => getAuthenticatedUser());
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
 
   // Global Modals State
@@ -39,6 +42,7 @@ export function App() {
 
     const handleStorageUpdate = () => {
       setStorageVersion((v) => v + 1);
+      setCurrentUser(getAuthenticatedUser());
     };
 
     window.addEventListener('storage_updated', handleStorageUpdate);
@@ -46,6 +50,11 @@ export function App() {
       window.removeEventListener('storage_updated', handleStorageUpdate);
     };
   }, []);
+
+  const handleLogout = () => {
+    logoutUser();
+    setCurrentUser(null);
+  };
 
   const handleSelectClient = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -62,6 +71,11 @@ export function App() {
     setIsQuickAttendanceOpen(true);
   };
 
+  // If not authenticated, show initial authentication screen
+  if (!currentUser) {
+    return <LoginView onLoginSuccess={(user) => setCurrentUser(user)} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans antialiased flex flex-col md:flex-row">
       {/* Sidebar Navigation (Desktop) / Bottom Nav (Mobile) */}
@@ -69,6 +83,8 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenQuickAttendance={() => handleOpenQuickAttendance()}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Container */}
@@ -78,6 +94,8 @@ export function App() {
           onOpenQuickAttendance={() => handleOpenQuickAttendance()}
           onSelectClient={handleSelectClient}
           onSelectVehicle={handleSelectVehicle}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         {/* View Switcher Container */}
@@ -87,6 +105,7 @@ export function App() {
               setActiveTab={setActiveTab}
               onOpenQuickAttendance={() => handleOpenQuickAttendance()}
               onSelectClient={handleSelectClient}
+              currentUser={currentUser}
             />
           )}
 
@@ -122,7 +141,7 @@ export function App() {
             />
           )}
 
-          {activeTab === 'finance' && <FinanceView />}
+          {activeTab === 'finance' && <FinanceView currentUser={currentUser} />}
 
           {activeTab === 'stock' && <StockView />}
 
@@ -162,3 +181,4 @@ export function App() {
 }
 
 export default App;
+

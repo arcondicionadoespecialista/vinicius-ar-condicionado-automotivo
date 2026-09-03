@@ -11,7 +11,11 @@ import {
   Settings,
   PlusCircle,
   FileText,
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react';
+import { User, SystemModule } from '../types';
+import { hasModuleAccess } from '../services/storage';
 
 export type ActiveTab =
   | 'dashboard'
@@ -30,6 +34,8 @@ interface NavigationProps {
   setActiveTab: (tab: ActiveTab) => void;
   onOpenQuickAttendance: () => void;
   unreadAlertsCount?: number;
+  currentUser?: User | null;
+  onLogout?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -37,8 +43,10 @@ export const Navigation: React.FC<NavigationProps> = ({
   setActiveTab,
   onOpenQuickAttendance,
   unreadAlertsCount = 0,
+  currentUser,
+  onLogout,
 }) => {
-  const mainNavItems = [
+  const allNavItems = [
     { id: 'dashboard' as ActiveTab, label: 'Início', icon: LayoutDashboard },
     { id: 'clients' as ActiveTab, label: 'Clientes', icon: Users },
     { id: 'vehicles' as ActiveTab, label: 'Veículos', icon: Car },
@@ -55,6 +63,11 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'reports' as ActiveTab, label: 'Relatórios', icon: BarChart3 },
     { id: 'settings' as ActiveTab, label: 'Configurações', icon: Settings },
   ];
+
+  // Filter navigation items by authenticated user permissions
+  const mainNavItems = allNavItems.filter((item) =>
+    hasModuleAccess(currentUser, item.id as SystemModule)
+  );
 
   return (
     <>
@@ -113,10 +126,40 @@ export const Navigation: React.FC<NavigationProps> = ({
           })}
         </nav>
 
-        {/* Footer info */}
-        <div className="p-4 border-t border-slate-800 text-[11px] text-slate-500 flex justify-between items-center">
-          <span>v2.5 Micro SaaS</span>
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+        {/* User Card & Logout */}
+        <div className="p-3 border-t border-slate-800 bg-slate-900/60">
+          <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-800/80 border border-slate-700/60 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">
+                  {currentUser?.name || 'Administrador'}
+                </p>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {currentUser?.email || 'admin'}
+                </p>
+              </div>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                title="Sair do Sistema"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="text-[11px] text-slate-500 flex justify-between items-center px-1">
+            <span>v2.5</span>
+            <span className="flex items-center gap-1.5 text-emerald-400 text-[10px]">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Conectado
+            </span>
+          </div>
         </div>
       </aside>
 

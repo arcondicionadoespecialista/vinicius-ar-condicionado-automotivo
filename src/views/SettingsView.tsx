@@ -6,16 +6,22 @@ import {
   RefreshCw,
   Save,
   CheckCircle2,
+  ShieldCheck,
+  UserCheck,
+  Key,
 } from 'lucide-react';
 import {
   getCompanySettings,
   saveCompanySettings,
   seedInitialData,
+  getAuthenticatedUser,
 } from '../services/storage';
 import { CompanySettings } from '../types';
+import { UserManagement } from '../components/UserManagement';
 
 export const SettingsView: React.FC = () => {
   const [settings, setSettings] = useState<CompanySettings>(getCompanySettings());
+  const [currentUser] = useState(() => getAuthenticatedUser());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
@@ -215,10 +221,13 @@ export const SettingsView: React.FC = () => {
             className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-6 py-3 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Save className="w-4 h-4" />
-            <span>Salvar Todas as Configurações</span>
+            <span>Salvar Dados da Oficina</span>
           </button>
         </div>
       </form>
+
+      {/* USERS & PERMISSIONS MANAGEMENT (ADMIN) - Standalone section */}
+      <UserManagement currentUser={currentUser} />
     </div>
   );
 };
