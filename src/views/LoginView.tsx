@@ -8,8 +8,8 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('arcondicionado.especialista@gmail.com');
-  const [password, setPassword] = useState('Ana9825.');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,12 +31,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFillCredentials = (emailVal: string, passVal: string) => {
-    setEmail(emailVal);
-    setPassword(passVal);
-    setErrorMsg('');
   };
 
   return (
@@ -139,26 +133,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <span>{isLoading ? 'Entrando...' : 'Entrar no Sistema'}</span>
             </button>
           </form>
-
-          {/* Quick Credential Helpers */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
-            <p className="text-[11px] font-bold text-slate-400 mb-2">Credenciais cadastradas:</p>
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => handleFillCredentials('arcondicionado.especialista@gmail.com', 'Ana9825.')}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-[11px] transition-colors flex items-center justify-between group cursor-pointer"
-              >
-                <div>
-                  <span className="font-bold text-sky-400 block">Administrador Geral</span>
-                  <span className="text-slate-300 font-mono text-[10px]">arcondicionado.especialista@gmail.com</span>
-                </div>
-                <span className="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded border border-sky-500/30 group-hover:bg-sky-500/30">
-                  Preencher
-                </span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* System info */}
